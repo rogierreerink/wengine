@@ -18,6 +18,14 @@ typedef struct {
 } windim_t;
 
 typedef struct {
+} charstyle_t;
+
+typedef struct {
+	int character;
+	charstyle_t style;
+} winchar_t;
+
+typedef struct {
 
 	struct {
 		windim_t top;
@@ -31,15 +39,9 @@ typedef struct {
 		windim_t height;
 	} dimension;
 
+	winchar_t background;
+
 } winstyle_t;
-
-typedef struct {
-} charstyle_t;
-
-typedef struct {
-	int character;
-	charstyle_t style;
-} winchar_t;
 
 typedef struct window window_t;
 typedef struct window {
@@ -54,6 +56,7 @@ typedef struct window {
 	struct {
 		uint16_t x;
 		uint16_t y;
+		uint8_t f_updated;
 	} dimension;
 
 	struct {
@@ -62,8 +65,12 @@ typedef struct window {
 		uint16_t used;
 	} content;
 
-	uint8_t flag_resized;
-	uint8_t flag_moved;
+	struct {
+		uint16_t mem_start;
+		uint16_t mem_end;
+		uint16_t x_start, y_start;
+		uint16_t x_end, y_end;
+	} draw;
 
 	void (*callback_resize)(window_t *win);
 	void (*callback_tick)(window_t *win, uint64_t tick_count);

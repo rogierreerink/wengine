@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <math.h>
 
-#define TICK_FREQUENCY 1000
+#define TICK_FREQUENCY 10000
 
 static window_t *win1, *win2, *win3, *win4;
 static charstyle_t cstyle;
@@ -30,6 +30,9 @@ static winstyle_t style1 = {
 			.value.absolute = 4,
 		},
 	},
+	.background = {
+		.character = '#',
+	},
 };
 
 static winstyle_t style2 = {
@@ -40,16 +43,19 @@ static winstyle_t style2 = {
 		},
 		.right = {
 			.flex = WINFLEX_ABSOLUTE,
-			.value.absolute = 4,
+			.value.absolute = 10,
 		},
 		.bottom = {
 			.flex = WINFLEX_ABSOLUTE,
-			.value.absolute = 2,
+			.value.absolute = 8,
 		},
 		.left = {
 			.flex = WINFLEX_RELATIVE,
 			.value.relative = 0.5,
 		},
+	},
+	.background = {
+		.character = '=',
 	},
 };
 
@@ -73,12 +79,15 @@ static winstyle_t style3 = {
 	.dimension = {
 		.width = {
 			.flex = WINFLEX_ABSOLUTE,
-			.value.absolute = 18,
+			.value.absolute = 24,
 		},
 		.height = {
 			.flex = WINFLEX_ABSOLUTE,
-			.value.absolute = 1,
+			.value.absolute = 4,
 		},
+	},
+	.background = {
+		.character = '-',
 	},
 };
 
@@ -101,6 +110,9 @@ static winstyle_t style4 = {
 			.value.absolute = 0,
 		},
 	},
+	.background = {
+		.character = '+',
+	},
 };
 
 static void
@@ -111,11 +123,11 @@ winsizepos_tick(window_t *win, uint64_t tick_count)
 	char buffer[128];
 	size_t buflen;
 	
-	if (tick_count - last_invoke_tick_count >= TICK_FREQUENCY)
+	if (tick_count - last_invoke_tick_count >= TICK_FREQUENCY / 2)
 	{
 		last_invoke_tick_count = tick_count;
 		invoke_count++;
-		if (invoke_count > 4)
+		if (invoke_count > 3)
 		{
 			invoke_count = 0;
 		}
@@ -153,6 +165,9 @@ test_wengine(void)
 	wm_window_show(win2);
 	wm_window_show(win3);
 	wm_window_show(win4);
+
+	wm_window_tofront(win3);
+	wm_window_tofront(win2);
 	
 	/*
 	window_write(win1, "Hello, world!", 13, cstyle);

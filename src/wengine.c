@@ -7,8 +7,8 @@
 static struct {
 	uint16_t cols;
 	uint16_t lines;
-	uint8_t flag_clear;
-	uint8_t flag_resized;
+	uint8_t f_clear;
+	uint8_t f_resized;
 } winroot;
 
 static inline void
@@ -25,7 +25,7 @@ winroot_init(void)
 
 	winroot.cols = 0;
 	winroot.lines = 0;
-	winroot.flag_resized = 0;
+	winroot.f_resized = 0;
 }
 
 static inline void
@@ -45,7 +45,7 @@ winroot_resize(void)
 
 	if (cols_tmp != winroot.cols || lines_tmp != winroot.lines)
 	{
-		winroot.flag_resized = 1;
+		winroot.f_resized = 1;
 	}
 }
 
@@ -68,8 +68,6 @@ window_create(winstyle_t *style)
 		exit(0);
 	}
 
-	window_style(newwin, style);
-
 	newcontent = (winchar_t *)malloc(sizeof(winchar_t) * UINT16_MAX);
 	if (newwin == NULL)
 	{
@@ -77,12 +75,27 @@ window_create(winstyle_t *style)
 		exit(0);
 	}
 
-	newwin->flag_resized = 0;
-	newwin->flag_moved = 0;
+	newwin->style = style;
+	
+	newwin->position.x = 0;
+	newwin->position.y = 0;
+
+	newwin->dimension.x = 0;
+	newwin->dimension.y = 0;
+	newwin->dimension.f_updated = 0;
 
 	newwin->content.mem = newcontent;
 	newwin->content.space = UINT16_MAX;
 	newwin->content.used = 0;
+
+	/*
+	newwin->draw.mem_start = 0;
+	newwin->draw.mem_end = 0;
+	newwin->draw.x_start = 0;
+	newwin->draw.y_start = 0;
+	newwin->draw.x_end = 0;
+	newwin->draw.y_end = 0;
+	*/
 
 	newwin->callback_resize = NULL;
 	newwin->callback_tick = NULL;
@@ -230,14 +243,13 @@ window_style(window_t *win, winstyle_t *style)
 	{
 		win->dimension.x = new_dimx;
 		win->dimension.y = new_dimy;
-		win->flag_resized = 1;
+		win->dimension.f_updated = 1;
 	}
 
 	if (new_posx != win->position.x || new_posy != win->position.y)
 	{
 		win->position.x = new_posx;
 		win->position.y = new_posy;
-		win->flag_moved = 1;
 	}
 }
 
@@ -412,7 +424,7 @@ wm_resize(void)
 	window_t *win;
 
 	winroot_resize();
-	if (!winroot.flag_resized)
+	if (!winroot.f_resized)
 	{
 		return;
 	}
@@ -422,7 +434,7 @@ wm_resize(void)
 		win = winstack_get(i);
 
 		window_resize(win);
-		if (!win->flag_resized)
+		if (!win->dimension.f_updated)
 		{
 			continue;
 		}
@@ -432,11 +444,11 @@ wm_resize(void)
 			win->callback_resize(win);
 		}
 
-		win->flag_resized = 0;
+		win->dimension.f_updated = 0;
 	}
 
-	winroot.flag_resized = 0;
-	winroot.flag_clear = 1;
+	winroot.f_resized = 0;
+	winroot.f_clear = 1;
 }
 
 static inline void
@@ -459,67 +471,73 @@ static inline void
 wm_draw(void)
 {
 	window_t *win;
-	char cwrite;
-	uint16_t curx, maxx;
-	uint16_t cury, maxy;
-	
-	if (winroot.flag_clear)
+	uint16_t posx, maxx;
+	uint16_t posy, maxy;
+	uint16_t content_it;
+	uint8_t content_w;
+	int content_ch;
+	winchar_t win_bg;
+
+	if (winroot.f_clear)
 	{
 		winroot_clear();
-		winroot.flag_clear = 0;
+		winroot.f_clear = 0;
 	}
 
 	for (int16_t i = winstack_used() - 1; i >= 0; i--)
 	{
 		win = winstack_get(i);
 
-		curx = win->position.x;
-		cury = win->position.y;
-		if (move(cury, curx) == ERR)
+		posx = win->position.x;
+		posy = win->position.y;
+		if (move(posy, posx) == ERR)
 		{
 			continue;
 		}
 
-		maxx = curx + win->dimension.x;
+		maxx = posx + win->dimension.x;
 		if (maxx > winroot.cols)
 		{
 			maxx = winroot.cols;
 		}
 
-		maxy = cury + win->dimension.y;
+		maxy = posy + win->dimension.y;
 		if (maxy > winroot.lines)
 		{
 			maxy = winroot.lines;
 		}
-		
-		for (uint16_t j = 0; j < win->content.used; j++)
+
+		win_bg = win->style->background;
+		content_it = 0;
+		for (uint16_t y = posy; y < maxy; y++)
 		{
-			switch ((cwrite = win->content.mem[j].character))
+			move(y, posx);
+			content_w = 1;
+			for (uint16_t x = posx; x < maxx; x++)
 			{
-				case '\n':
-					if (cury < maxy)
+				if (content_w && content_it < win->content.used)
+				{
+					content_ch = win->content.mem[content_it++].character;
+					switch (content_ch)
 					{
-						curx = win->position.x;
-						if (move(++cury, curx) == ERR)
-						{
-							j = win->content.used;
-						}
-					}
-					break;
+						case '\n':
+							content_w = 0;
+							x--;
+							break;
 
-				case '\r':
-					break;
+						case '\r':
+							x--;
+							break;
 
-				default:
-					if (curx < maxx)
-					{
-						if (addch(cwrite) == ERR)
-						{
-							continue;
-						}
-						curx++;
+						default:
+							addch(content_ch);
+							break;
 					}
-					break;
+				}
+				else
+				{
+					addch(win_bg.character);
+				}
 			}
 		}
 	}
@@ -622,14 +640,21 @@ engine_start(uint16_t tick_frequency)
 	uint64_t tick_count = 0;
 	int tick_ret = 0;
 	tick_t tick;
+	
 	tick_init(&tick, tick_frequency);
+
 	engine_running = 1;
 	while (engine_running)
 	{
 		tick_ret = tick_sleep(&tick);
+		
 		wm_resize();
+		
 		if (tick_ret == 0)
+		{
 			wm_tick(tick_count++);
+		}
+
 		wm_draw();
 	}
 }
