@@ -452,6 +452,9 @@ wm_resize(void)
 		{
 			continue;
 		}
+		win->f_force_resize = 0;
+		win->dimension.f_update = 0;
+		win->position.f_update = 0;
 
 		if (win->callback_resize != NULL)
 		{
@@ -464,9 +467,6 @@ wm_resize(void)
 		{
 			window_resize(win);
 		}
-
-		win->dimension.f_update = 0;
-		win->position.f_update = 0;
 	}
 
 	winroot.f_resize = 0;
@@ -573,12 +573,14 @@ wm_draw(void)
 	{
 		win = winstack_get(i);
 
-		if (!force_update && !win->f_force_update
+		if (!force_update
+				&& !win->f_force_update
 				&& !win->content.f_update)
 		{
 			continue;
 		}
 		force_update = 1;
+		win->f_force_update = 0;
 		win->content.f_update = 0;
 
 		xmin = win->position.x;
