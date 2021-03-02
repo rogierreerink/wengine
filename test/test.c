@@ -5,10 +5,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
+#include <wchar.h>
 
 #define TICK_FREQUENCY 25
 
-static window_t *win1, *win2, *win3, *win4, *win5;
+static window_t *win1, *win2, *win3, *win4, *win5, *win6;
 static charstyle_t cstyle;
 
 static winstyle_t style1 = {
@@ -147,10 +148,41 @@ static winstyle_t style5 = {
 	},
 };
 
+static winstyle_t style6 = {
+	.margin = {
+		.top = {
+			.flex = WINFLEX_FREE,
+			.value.absolute = 2,
+		},
+		.right = {
+			.flex = WINFLEX_ABSOLUTE,
+			.value.absolute = 32,
+		},
+		.bottom = {
+			.flex = WINFLEX_ABSOLUTE,
+			.value.absolute = 2,
+		},
+		.left = {
+			.flex = WINFLEX_ABSOLUTE,
+			.value.absolute = 4,
+		},
+	},
+	.dimension = {
+		.height = {
+			.flex = WINFLEX_ABSOLUTE,
+			.value.absolute = 8,
+		},
+	},
+	.line_wrap = 1,
+	.background = {
+		.character = ' ',
+	},
+};
+
 static void
 winsizepos_tick(window_t *win, uint64_t tick_count)
 {
-	char buffer[128];
+	wchar_t buffer[128];
 	size_t buflen;
 	
 	if (win->data != NULL)
@@ -172,16 +204,22 @@ winsizepos_tick(window_t *win, uint64_t tick_count)
 
 		for (uint8_t i = 0; i < *number_of_newlines; i++)
 		{
-			window_write(win, "\n", 1, cstyle);
+			window_write(win, L"\n", 1, cstyle);
 		}
 
-		buflen = snprintf(buffer, 128, "%d, %d, %d, %d, %lu, %lu",
+		buflen = swprintf(buffer, 128, L"%d, %d, %d, %d, %lu, %lu",
 				win->dimension.x, win->dimension.y,
 				win->position.x, win->position.y, tick_count,
 				*number_of_newlines);
 
 		window_write(win, buffer, buflen, cstyle);
 	}
+}
+
+void
+callback_input(const wchar_t *buffer, size_t size)
+{
+	window_write(win6, buffer, size, cstyle);
 }
 
 test_return_t
@@ -207,8 +245,13 @@ test_wengine(void)
 	win5->callback_tick = winsizepos_tick;
 	win5->data = (uint64_t *)calloc(2, sizeof(uint64_t));
 	
+	win6 = window_create(&style6);
+	
 	engine_setup();
 
+	wm_callback_input = callback_input;
+
+	wm_window_show(win6);
 	wm_window_show(win1);
 	wm_window_show(win2);
 	wm_window_show(win3);
@@ -235,6 +278,7 @@ test_wengine(void)
 	window_destroy(win3);
 	window_destroy(win4);
 	window_destroy(win5);
+	window_destroy(win6);
 	
 	return TEST_OK;
 }

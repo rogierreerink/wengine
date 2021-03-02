@@ -1,5 +1,6 @@
 #include "wengine.h"
 #include <curses.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -17,7 +18,6 @@ winroot_init(void)
 	initscr();
 	cbreak();
 	noecho();
-	nonl();
 	intrflush(stdscr, FALSE);
 	keypad(stdscr, TRUE);
 	nodelay(stdscr, TRUE);
@@ -258,7 +258,7 @@ window_clear(window_t *win)
 }
 
 void
-window_write(window_t *win, const char *src, uint16_t size, charstyle_t style)
+window_write(window_t *win, const wchar_t *src, uint16_t size, charstyle_t style)
 {
 	const uint16_t offset = win->content.imax;
 	const uint16_t space_left = win->content.space - offset;
@@ -270,7 +270,7 @@ window_write(window_t *win, const char *src, uint16_t size, charstyle_t style)
 		cpy_size = space_left;
 	}
 
-	for (uint16_t i = 0; i < cpy_size; i++)
+	for (int32_t i = 0; i < cpy_size; i++)
 	{
 		win->content.mem[i + offset].character = src[i];
 		win->content.mem[i + offset].style = style;
@@ -393,6 +393,7 @@ winstack_free(void)
 static inline void
 wm_setup(void)
 {
+	setlocale(LC_ALL, "");
 	winstack_init();
 	winroot_init();
 }
@@ -465,6 +466,56 @@ wm_tick(uint64_t tick_count)
 	}
 }
 
+void (*wm_callback_input)(const wchar_t *buffer, size_t size) = NULL;
+
+static inline void
+wm_input(void)
+{
+	wchar_t buffer[128];
+	uint8_t buffer_it = 0;
+	wchar_t current;
+
+	if (wm_callback_input == NULL)
+	{
+		return;
+	}
+
+	while (1)
+	{
+		current = getch();
+		
+		if (current > 31 && current < 127)
+		{
+			buffer[buffer_it++] = current;
+		}
+		else
+		{
+			switch (current)
+			{
+				case ERR:
+					break;
+
+				case '\n':
+					buffer[buffer_it++] = current;
+					break;
+			}
+		}
+
+		if (current == ERR || buffer_it >= 128)
+		{
+			if (buffer_it > 0)
+			{
+				wm_callback_input(buffer, buffer_it);
+			}
+
+			if (buffer_it < 128)
+			{
+				break;
+			}
+		}
+	}
+}
+
 static inline void
 wm_draw_character(winchar_t *wc)
 {
@@ -516,7 +567,7 @@ wm_draw(void)
 			ymax = winroot.lines;
 		}
 
-		/* Currently, the whole window is redrawn. */
+		/* Currently, the whole window is redrawn on each draw. */
 		xmin_update = xmin;//win->update_area.xmin;
 		ymin_update = ymin;//win->update_area.ymin;
 		xend_update = xmax - 1;//win->update_area.xmax;
@@ -594,8 +645,6 @@ wm_draw(void)
 				}
 			}
 		}
-
-		win->content.imin = content_ipos;
 	}
 	
 	refresh();
@@ -703,14 +752,12 @@ engine_start(uint16_t tick_frequency)
 	while (engine_running)
 	{
 		tick_ret = tick_sleep(&tick);
-		
 		wm_resize();
-		
 		if (tick_ret == 0)
 		{
 			wm_tick(tick_count++);
 		}
-
+		wm_input();
 		wm_draw();
 	}
 }

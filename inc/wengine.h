@@ -2,6 +2,7 @@
 #define _WENGINE_H
 
 #include <inttypes.h>
+#include <stddef.h>
 
 typedef enum {
 	WINFLEX_FREE,
@@ -21,7 +22,7 @@ typedef struct {
 } charstyle_t;
 
 typedef struct {
-	int character;
+	wchar_t character;
 	charstyle_t style;
 } winchar_t;
 
@@ -90,7 +91,7 @@ void
 window_clear(window_t *win);
 
 void
-window_write(window_t *win, const char *src, uint16_t size, charstyle_t style);
+window_write(window_t *win, const wchar_t *src, uint16_t size, charstyle_t style);
 
 void
 window_destroy(window_t *win);
@@ -103,6 +104,9 @@ wm_window_tofront(window_t *win);
 
 void
 wm_window_hide(window_t *win);
+
+extern void
+(*wm_callback_input)(const wchar_t *buffer, size_t size);
 
 void
 engine_setup(void);
