@@ -88,6 +88,7 @@ window_create(winstyle_t *style)
 	newwin->content.space = UINT16_MAX;
 	newwin->content.imin = 0;
 	newwin->content.imax = 0;
+	newwin->content.f_update = 0;
 	
 	newwin->update_area.xmin = 0;
 	newwin->update_area.ymin = 0;
@@ -255,6 +256,7 @@ window_clear(window_t *win)
 {
 	win->content.imin = 0;
 	win->content.imax = 0;
+	win->content.f_update = 1;
 }
 
 void
@@ -277,6 +279,7 @@ window_write(window_t *win, const wchar_t *src, uint16_t size, charstyle_t style
 	}
 
 	win->content.imax += cpy_size;
+	win->content.f_update = 1;
 }
 
 void
@@ -535,6 +538,7 @@ wm_draw(void)
 	uint8_t content_nl;
 	uint8_t content_lw;
 	uint8_t content_updated;
+	uint8_t force_update;
 	winchar_t content;
 	winchar_t win_bg;
 
@@ -544,9 +548,17 @@ wm_draw(void)
 		winroot.f_clear = 0;
 	}
 
+	force_update = 0;
 	for (int16_t i = winstack_used() - 1; i >= 0; i--)
 	{
 		win = winstack_get(i);
+
+		if (!force_update && !win->content.f_update)
+		{
+			continue;
+		}
+		win->content.f_update = 0;
+		force_update = 1;
 
 		xmin = win->position.x;
 		ymin = win->position.y;

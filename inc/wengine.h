@@ -67,6 +67,7 @@ typedef struct window {
 		uint16_t space;
 		uint16_t imin;
 		uint16_t imax;
+		uint8_t f_update;
 	} content;
 
 	struct {
