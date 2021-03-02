@@ -59,7 +59,7 @@ typedef struct window {
 	struct {
 		uint16_t x;
 		uint16_t y;
-		uint8_t f_updated;
+		uint8_t f_update;
 	} dimension;
 
 	struct {
@@ -74,6 +74,8 @@ typedef struct window {
 		uint16_t xmin, ymin;
 		uint16_t xmax, ymax;
 	} update_area;
+	
+	uint8_t f_force_update;
 
 	void (*callback_resize)(window_t *win);
 	void (*callback_tick)(window_t *win, uint64_t tick_count);

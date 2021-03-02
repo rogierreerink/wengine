@@ -9,7 +9,7 @@ static struct {
 	uint16_t cols;
 	uint16_t lines;
 	uint8_t f_clear;
-	uint8_t f_resized;
+	uint8_t f_resize;
 } winroot;
 
 static inline void
@@ -25,7 +25,7 @@ winroot_init(void)
 
 	winroot.cols = 0;
 	winroot.lines = 0;
-	winroot.f_resized = 0;
+	winroot.f_resize = 0;
 }
 
 static inline void
@@ -45,7 +45,7 @@ winroot_resize(void)
 
 	if (cols_tmp != winroot.cols || lines_tmp != winroot.lines)
 	{
-		winroot.f_resized = 1;
+		winroot.f_resize = 1;
 	}
 }
 
@@ -82,7 +82,7 @@ window_create(winstyle_t *style)
 
 	newwin->dimension.x = 0;
 	newwin->dimension.y = 0;
-	newwin->dimension.f_updated = 0;
+	newwin->dimension.f_update = 0;
 
 	newwin->content.mem = newcontent;
 	newwin->content.space = UINT16_MAX;
@@ -94,6 +94,8 @@ window_create(winstyle_t *style)
 	newwin->update_area.ymin = 0;
 	newwin->update_area.xmax = 0;
 	newwin->update_area.ymax = 0;
+
+	newwin->f_force_update = 0;
 
 	newwin->callback_resize = NULL;
 	newwin->callback_tick = NULL;
@@ -241,7 +243,7 @@ window_style(window_t *win, winstyle_t *style)
 	{
 		win->dimension.x = new_dimx;
 		win->dimension.y = new_dimy;
-		win->dimension.f_updated = 1;
+		win->dimension.f_update = 1;
 	}
 
 	if (new_posx != win->position.x || new_posy != win->position.y)
@@ -426,7 +428,7 @@ wm_resize(void)
 	window_t *win;
 
 	winroot_resize();
-	if (!winroot.f_resized)
+	if (!winroot.f_resize)
 	{
 		return;
 	}
@@ -436,7 +438,7 @@ wm_resize(void)
 		win = winstack_get(i);
 
 		window_resize(win);
-		if (!win->dimension.f_updated)
+		if (!win->dimension.f_update)
 		{
 			continue;
 		}
@@ -446,10 +448,11 @@ wm_resize(void)
 			win->callback_resize(win);
 		}
 
-		win->dimension.f_updated = 0;
+		win->dimension.f_update = 0;
+		win->f_force_update = 1;
 	}
 
-	winroot.f_resized = 0;
+	winroot.f_resize = 0;
 	winroot.f_clear = 1;
 }
 
@@ -553,12 +556,14 @@ wm_draw(void)
 	{
 		win = winstack_get(i);
 
-		if (!force_update && !win->content.f_update)
+		if (!force_update && !win->f_force_update
+				&& !win->content.f_update)
 		{
 			continue;
 		}
-		win->content.f_update = 0;
 		force_update = 1;
+		win->f_force_update = 0;
+		win->content.f_update = 0;
 
 		xmin = win->position.x;
 		ymin = win->position.y;
