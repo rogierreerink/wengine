@@ -54,6 +54,7 @@ typedef struct window {
 	struct {
 		uint16_t x;
 		uint16_t y;
+		uint8_t f_update;
 	} position;
 
 	struct {
@@ -63,11 +64,17 @@ typedef struct window {
 	} dimension;
 
 	struct {
+		uint16_t width;
+		uint16_t height;
+	} root;
+
+	struct {
 		winchar_t *mem;
 		uint16_t space;
 		uint16_t imin;
 		uint16_t imax;
 		uint8_t f_update;
+		uint8_t f_force;
 	} content;
 
 	struct {
@@ -75,6 +82,7 @@ typedef struct window {
 		uint16_t xmax, ymax;
 	} update_area;
 	
+	uint8_t f_force_resize;
 	uint8_t f_force_update;
 
 	void (*callback_resize)(window_t *win);

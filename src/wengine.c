@@ -79,10 +79,14 @@ window_create(winstyle_t *style)
 	
 	newwin->position.x = 0;
 	newwin->position.y = 0;
+	newwin->position.f_update = 0;
 
 	newwin->dimension.x = 0;
 	newwin->dimension.y = 0;
 	newwin->dimension.f_update = 0;
+
+	newwin->root.width = 0;
+	newwin->root.height = 0;
 
 	newwin->content.mem = newcontent;
 	newwin->content.space = UINT16_MAX;
@@ -250,6 +254,7 @@ window_style(window_t *win, winstyle_t *style)
 	{
 		win->position.x = new_posx;
 		win->position.y = new_posy;
+		win->position.f_update = 1;
 	}
 }
 
@@ -437,8 +442,13 @@ wm_resize(void)
 	{
 		win = winstack_get(i);
 
+		win->root.width = winroot.cols;
+		win->root.height = winroot.lines;
+
 		window_resize(win);
-		if (!win->dimension.f_update)
+		if (!win->f_force_resize
+				&& !win->dimension.f_update
+				&& !win->position.f_update)
 		{
 			continue;
 		}
@@ -448,8 +458,15 @@ wm_resize(void)
 			win->callback_resize(win);
 		}
 
+		/* Force resize allows a user to update their
+		 * winstyle and let it take effect immediately. */
+		if (win->f_force_resize)
+		{
+			window_resize(win);
+		}
+
 		win->dimension.f_update = 0;
-		win->f_force_update = 1;
+		win->position.f_update = 0;
 	}
 
 	winroot.f_resize = 0;
@@ -562,7 +579,6 @@ wm_draw(void)
 			continue;
 		}
 		force_update = 1;
-		win->f_force_update = 0;
 		win->content.f_update = 0;
 
 		xmin = win->position.x;
