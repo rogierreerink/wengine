@@ -32,12 +32,14 @@ typedef struct {
 		windim_t right;
 		windim_t bottom;
 		windim_t left;
-	} position;
+	} margin;
 	
 	struct {
 		windim_t width;
 		windim_t height;
 	} dimension;
+
+	uint8_t line_wrap;
 
 	winchar_t background;
 
@@ -62,18 +64,19 @@ typedef struct window {
 	struct {
 		winchar_t *mem;
 		uint16_t space;
-		uint16_t used;
+		uint16_t imin;
+		uint16_t imax;
 	} content;
 
 	struct {
-		uint16_t mem_start;
-		uint16_t mem_end;
-		uint16_t x_start, y_start;
-		uint16_t x_end, y_end;
-	} draw;
+		uint16_t xmin, ymin;
+		uint16_t xmax, ymax;
+	} update_area;
 
 	void (*callback_resize)(window_t *win);
 	void (*callback_tick)(window_t *win, uint64_t tick_count);
+
+	void *data;
 
 } window_t;
 

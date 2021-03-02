@@ -86,16 +86,8 @@ window_create(winstyle_t *style)
 
 	newwin->content.mem = newcontent;
 	newwin->content.space = UINT16_MAX;
-	newwin->content.used = 0;
-
-	/*
-	newwin->draw.mem_start = 0;
-	newwin->draw.mem_end = 0;
-	newwin->draw.x_start = 0;
-	newwin->draw.y_start = 0;
-	newwin->draw.x_end = 0;
-	newwin->draw.y_end = 0;
-	*/
+	newwin->content.imin = 0;
+	newwin->content.imax = 0;
 
 	newwin->callback_resize = NULL;
 	newwin->callback_tick = NULL;
@@ -119,55 +111,55 @@ window_style(window_t *win, winstyle_t *style)
 
 	win->style = style;
 
-	switch (style->position.top.flex)
+	switch (style->margin.top.flex)
 	{
 		case WINFLEX_FREE:
 			break;
 		case WINFLEX_ABSOLUTE:
-			new_posy += style->position.top.value.absolute;
-			new_dimy -= style->position.top.value.absolute;
+			new_posy += style->margin.top.value.absolute;
+			new_dimy -= style->margin.top.value.absolute;
 			break;
 		case WINFLEX_RELATIVE:
-			new_posy += style->position.top.value.relative * winroot.lines;
-			new_dimy -= style->position.top.value.relative * winroot.lines;
+			new_posy += style->margin.top.value.relative * winroot.lines;
+			new_dimy -= style->margin.top.value.relative * winroot.lines;
 			break;
 	}
 
-	switch (style->position.right.flex)
+	switch (style->margin.right.flex)
 	{
 		case WINFLEX_FREE:
 			break;
 		case WINFLEX_ABSOLUTE:
-			new_dimx -= style->position.right.value.absolute;
+			new_dimx -= style->margin.right.value.absolute;
 			break;
 		case WINFLEX_RELATIVE:
-			new_dimx -= style->position.right.value.relative * winroot.cols;
+			new_dimx -= style->margin.right.value.relative * winroot.cols;
 			break;
 	}
 
-	switch (style->position.bottom.flex)
+	switch (style->margin.bottom.flex)
 	{
 		case WINFLEX_FREE:
 			break;
 		case WINFLEX_ABSOLUTE:
-			new_dimy -= style->position.bottom.value.absolute;
+			new_dimy -= style->margin.bottom.value.absolute;
 			break;
 		case WINFLEX_RELATIVE:
-			new_dimy -= style->position.bottom.value.relative * winroot.lines;
+			new_dimy -= style->margin.bottom.value.relative * winroot.lines;
 			break;
 	}
 
-	switch (style->position.left.flex)
+	switch (style->margin.left.flex)
 	{
 		case WINFLEX_FREE:
 			break;
 		case WINFLEX_ABSOLUTE:
-			new_posx += style->position.left.value.absolute;
-			new_dimx -= style->position.left.value.absolute;
+			new_posx += style->margin.left.value.absolute;
+			new_dimx -= style->margin.left.value.absolute;
 			break;
 		case WINFLEX_RELATIVE:
-			new_posx += style->position.left.value.relative * winroot.cols;
-			new_dimx -= style->position.left.value.relative * winroot.cols;
+			new_posx += style->margin.left.value.relative * winroot.cols;
+			new_dimx -= style->margin.left.value.relative * winroot.cols;
 			break;
 	}
 
@@ -205,36 +197,36 @@ window_style(window_t *win, winstyle_t *style)
 		new_dimy = 0;
 	}
 
-	if (style->position.top.flex == WINFLEX_FREE)
+	if (style->margin.top.flex == WINFLEX_FREE)
 	{
-		switch (style->position.bottom.flex)
+		switch (style->margin.bottom.flex)
 		{
 			case WINFLEX_FREE:
 				break;
 			case WINFLEX_ABSOLUTE:
 				new_posy = winroot.lines - new_dimy
-					- style->position.bottom.value.absolute;
+					- style->margin.bottom.value.absolute;
 				break;
 			case WINFLEX_RELATIVE:
 				new_posy = winroot.lines - new_dimy
-					- style->position.bottom.value.relative * winroot.lines;
+					- style->margin.bottom.value.relative * winroot.lines;
 				break;
 		}
 	}
 	
-	if (style->position.left.flex == WINFLEX_FREE)
+	if (style->margin.left.flex == WINFLEX_FREE)
 	{
-		switch (style->position.right.flex)
+		switch (style->margin.right.flex)
 		{
 			case WINFLEX_FREE:
 				break;
 			case WINFLEX_ABSOLUTE:
 				new_posx = winroot.cols - new_dimx
-					- style->position.right.value.absolute;
+					- style->margin.right.value.absolute;
 				break;
 			case WINFLEX_RELATIVE:
 				new_posx = winroot.cols - new_dimx
-					- style->position.right.value.relative * winroot.cols;
+					- style->margin.right.value.relative * winroot.cols;
 				break;
 		}
 	}
@@ -256,20 +248,21 @@ window_style(window_t *win, winstyle_t *style)
 void
 window_clear(window_t *win)
 {
-	win->content.used = 0;
+	win->content.imin = 0;
+	win->content.imax = 0;
 }
 
 void
 window_write(window_t *win, const char *src, uint16_t size, charstyle_t style)
 {
+	const uint16_t offset = win->content.imax;
+	const uint16_t space_left = win->content.space - offset;
 	uint16_t cpy_size;
-	uint16_t offset;
 
-	offset = win->content.used;
 	cpy_size = size;
-	if (cpy_size > win->content.space - offset)
+	if (cpy_size > space_left)
 	{
-		cpy_size = win->content.space - offset;
+		cpy_size = space_left;
 	}
 
 	for (uint16_t i = 0; i < cpy_size; i++)
@@ -278,7 +271,7 @@ window_write(window_t *win, const char *src, uint16_t size, charstyle_t style)
 		win->content.mem[i + offset].style = style;
 	}
 
-	win->content.used += cpy_size;
+	win->content.imax += cpy_size;
 }
 
 void
@@ -468,14 +461,20 @@ wm_tick(uint64_t tick_count)
 }
 
 static inline void
+wm_draw_character(winchar_t *wc)
+{
+	addch(wc->character);
+}
+
+static inline void
 wm_draw(void)
 {
 	window_t *win;
-	uint16_t posx, maxx;
-	uint16_t posy, maxy;
-	uint16_t content_it;
-	uint8_t content_w;
-	int content_ch;
+	int32_t xmin, xmax, xpos;
+	int32_t ymin, ymax, ypos;
+	uint16_t content_ipos;
+	uint8_t content_nl;
+	winchar_t content;
 	winchar_t win_bg;
 
 	if (winroot.f_clear)
@@ -488,58 +487,84 @@ wm_draw(void)
 	{
 		win = winstack_get(i);
 
-		posx = win->position.x;
-		posy = win->position.y;
-		if (move(posy, posx) == ERR)
+		xmin = win->position.x;
+		ymin = win->position.y;
+		if (move(ymin, xmin) == ERR)
 		{
 			continue;
 		}
 
-		maxx = posx + win->dimension.x;
-		if (maxx > winroot.cols)
+		xmax = xmin + win->dimension.x;
+		if (xmax > winroot.cols)
 		{
-			maxx = winroot.cols;
+			xmax = winroot.cols;
 		}
 
-		maxy = posy + win->dimension.y;
-		if (maxy > winroot.lines)
+		ymax = ymin + win->dimension.y;
+		if (ymax > winroot.lines)
 		{
-			maxy = winroot.lines;
+			ymax = winroot.lines;
 		}
-
+		
 		win_bg = win->style->background;
-		content_it = 0;
-		for (uint16_t y = posy; y < maxy; y++)
+
+		content_ipos = win->content.imin;
+		for (ypos = ymin; ypos < ymax; ypos++)
 		{
-			move(y, posx);
-			content_w = 1;
-			for (uint16_t x = posx; x < maxx; x++)
+			move(ypos, xmin);
+			content_nl = 0;
+			for (xpos = xmin; xpos < xmax; xpos++)
 			{
-				if (content_w && content_it < win->content.used)
+				if (content_ipos < win->content.imax)
 				{
-					content_ch = win->content.mem[content_it++].character;
-					switch (content_ch)
+					content = win->content.mem[content_ipos++];
+					switch (content.character)
 					{
 						case '\n':
-							content_w = 0;
-							x--;
+							content_nl = 1;
 							break;
 
 						case '\r':
-							x--;
+							xpos--;
 							break;
 
 						default:
-							addch(content_ch);
+							wm_draw_character(&content);
 							break;
 					}
 				}
 				else
 				{
-					addch(win_bg.character);
+					content_nl = 1;
+				}
+
+				if (content_nl)
+				{
+					while (xpos++ < xmax)
+					{
+						wm_draw_character(&win_bg);
+					}
+				}
+			}
+
+			while (!win->style->line_wrap && !content_nl)
+			{
+				if (content_ipos < win->content.imax)
+				{
+					content = win->content.mem[content_ipos++];
+					if (content.character == '\n')
+					{
+						break;
+					}
+				}
+				else
+				{
+					break;
 				}
 			}
 		}
+
+		win->content.imin = content_ipos;
 	}
 	
 	refresh();

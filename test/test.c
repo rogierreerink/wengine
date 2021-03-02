@@ -6,13 +6,13 @@
 #include <unistd.h>
 #include <math.h>
 
-#define TICK_FREQUENCY 10000
+#define TICK_FREQUENCY 1000
 
 static window_t *win1, *win2, *win3, *win4;
 static charstyle_t cstyle;
 
 static winstyle_t style1 = {
-	.position = {
+	.margin = {
 		.top = {
 			.flex = WINFLEX_ABSOLUTE,
 			.value.absolute = 2,
@@ -36,7 +36,7 @@ static winstyle_t style1 = {
 };
 
 static winstyle_t style2 = {
-	.position = {
+	.margin = {
 		.top = {
 			.flex = WINFLEX_RELATIVE,
 			.value.relative = 0.5,
@@ -60,7 +60,7 @@ static winstyle_t style2 = {
 };
 
 static winstyle_t style3 = {
-	.position = {
+	.margin = {
 		.top = {
 			.flex = WINFLEX_FREE,
 		},
@@ -92,7 +92,7 @@ static winstyle_t style3 = {
 };
 
 static winstyle_t style4 = {
-	.position = {
+	.margin = {
 		.top = {
 			.flex = WINFLEX_ABSOLUTE,
 			.value.absolute = 0,
@@ -118,33 +118,38 @@ static winstyle_t style4 = {
 static void
 winsizepos_tick(window_t *win, uint64_t tick_count)
 {
-	static uint8_t invoke_count = 0;
-	static uint64_t last_invoke_tick_count = 0;
 	char buffer[128];
 	size_t buflen;
 	
-	if (tick_count - last_invoke_tick_count >= TICK_FREQUENCY / 2)
+	if (win->data != NULL)
 	{
-		last_invoke_tick_count = tick_count;
-		invoke_count++;
-		if (invoke_count > 3)
+		uint64_t *last_invoke_tick_count = (uint64_t *)(win->data);
+		uint64_t *number_of_newlines = (uint64_t *)(win->data + sizeof(uint64_t));
+		
+		if (tick_count - *last_invoke_tick_count >= TICK_FREQUENCY)
 		{
-			invoke_count = 0;
+			*last_invoke_tick_count = tick_count;
+			(*number_of_newlines)++;
+			if (*number_of_newlines >= win->dimension.y)
+			{
+				*number_of_newlines = 0;
+			}
 		}
+		
+		window_clear(win);
+
+		for (uint8_t i = 0; i < *number_of_newlines; i++)
+		{
+			window_write(win, "\n", 1, cstyle);
+		}
+
+		buflen = snprintf(buffer, 128, "%d, %d, %d, %d, %lu, %lu",
+				win->dimension.x, win->dimension.y,
+				win->position.x, win->position.y, tick_count,
+				*number_of_newlines);
+
+		window_write(win, buffer, buflen, cstyle);
 	}
-	
-	window_clear(win);
-
-	for (uint8_t i = 0; i < invoke_count; i++)
-	{
-		window_write(win, "\n", 1, cstyle);
-	}
-
-	buflen = snprintf(buffer, 128, "%d, %d, %d, %d, %lu",
-			win->dimension.x, win->dimension.y,
-			win->position.x, win->position.y, tick_count);
-
-	window_write(win, buffer, buflen, cstyle);
 }
 
 test_return_t
@@ -152,12 +157,19 @@ test_wengine(void)
 {
 	win1 = window_create(&style1);
 	win1->callback_tick = winsizepos_tick;
+	win1->data = (uint64_t *)calloc(2, sizeof(uint64_t));
+
 	win2 = window_create(&style2);
 	win2->callback_tick = winsizepos_tick;
+	win2->data = (uint64_t *)calloc(2, sizeof(uint64_t));
+
 	win3 = window_create(&style3);
 	win3->callback_tick = winsizepos_tick;
+	win3->data = (uint64_t *)calloc(2, sizeof(uint64_t));
+
 	win4 = window_create(&style4);
 	win4->callback_tick = winsizepos_tick;
+	win4->data = (uint64_t *)calloc(2, sizeof(uint64_t));
 	
 	engine_setup();
 
