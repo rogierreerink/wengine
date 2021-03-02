@@ -88,6 +88,11 @@ window_create(winstyle_t *style)
 	newwin->content.space = UINT16_MAX;
 	newwin->content.imin = 0;
 	newwin->content.imax = 0;
+	
+	newwin->update_area.xmin = 0;
+	newwin->update_area.ymin = 0;
+	newwin->update_area.xmax = 0;
+	newwin->update_area.ymax = 0;
 
 	newwin->callback_resize = NULL;
 	newwin->callback_tick = NULL;
@@ -472,8 +477,13 @@ wm_draw(void)
 	window_t *win;
 	int32_t xmin, xmax, xpos;
 	int32_t ymin, ymax, ypos;
+	int32_t xmin_update, xend_update;
+	int32_t ymin_update, yend_update;
 	uint16_t content_ipos;
+	uint16_t content_imax;
 	uint8_t content_nl;
+	uint8_t content_lw;
+	uint8_t content_updated;
 	winchar_t content;
 	winchar_t win_bg;
 
@@ -505,17 +515,26 @@ wm_draw(void)
 		{
 			ymax = winroot.lines;
 		}
+
+		/* Currently, the whole window is redrawn. */
+		xmin_update = xmin;//win->update_area.xmin;
+		ymin_update = ymin;//win->update_area.ymin;
+		xend_update = xmax - 1;//win->update_area.xmax;
+		yend_update = ymax - 1;//win->update_area.ymax;
 		
 		win_bg = win->style->background;
 
+		content_lw = win->style->line_wrap;
 		content_ipos = win->content.imin;
-		for (ypos = ymin; ypos < ymax; ypos++)
+		content_imax = win->content.imax;
+		content_updated = 0;
+		for (ypos = ymin_update; ypos < ymax; ypos++)
 		{
 			move(ypos, xmin);
 			content_nl = 0;
-			for (xpos = xmin; xpos < xmax; xpos++)
+			for (xpos = xmin_update; xpos < xmax; xpos++)
 			{
-				if (content_ipos < win->content.imax)
+				if (content_ipos < content_imax)
 				{
 					content = win->content.mem[content_ipos++];
 					switch (content.character)
@@ -545,11 +564,23 @@ wm_draw(void)
 						wm_draw_character(&win_bg);
 					}
 				}
+				
+				if (ypos >= yend_update
+						&& xpos >= xend_update)
+				{
+					content_updated = 1;
+					break;
+				}
 			}
 
-			while (!win->style->line_wrap && !content_nl)
+			if (content_updated)
 			{
-				if (content_ipos < win->content.imax)
+				break;
+			}
+
+			while (!content_lw && !content_nl)
+			{
+				if (content_ipos < content_imax)
 				{
 					content = win->content.mem[content_ipos++];
 					if (content.character == '\n')

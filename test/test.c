@@ -6,9 +6,9 @@
 #include <unistd.h>
 #include <math.h>
 
-#define TICK_FREQUENCY 1000
+#define TICK_FREQUENCY 25
 
-static window_t *win1, *win2, *win3, *win4;
+static window_t *win1, *win2, *win3, *win4, *win5;
 static charstyle_t cstyle;
 
 static winstyle_t style1 = {
@@ -43,7 +43,7 @@ static winstyle_t style2 = {
 		},
 		.right = {
 			.flex = WINFLEX_ABSOLUTE,
-			.value.absolute = 10,
+			.value.absolute = 12,
 		},
 		.bottom = {
 			.flex = WINFLEX_ABSOLUTE,
@@ -115,6 +115,38 @@ static winstyle_t style4 = {
 	},
 };
 
+static winstyle_t style5 = {
+	.margin = {
+		.top = {
+			.flex = WINFLEX_ABSOLUTE,
+			.value.absolute = 4,
+		},
+		.right = {
+			.flex = WINFLEX_ABSOLUTE,
+			.value.absolute = 8,
+		},
+		.bottom = {
+			.flex = WINFLEX_FREE,
+		},
+		.left = {
+			.flex = WINFLEX_FREE,
+		},
+	},
+	.dimension = {
+		.width = {
+			.flex = WINFLEX_ABSOLUTE,
+			.value.absolute = 32,
+		},
+		.height = {
+			.flex = WINFLEX_RELATIVE,
+			.value.relative = 0.25,
+		},
+	},
+	.background = {
+		.character = '*',
+	},
+};
+
 static void
 winsizepos_tick(window_t *win, uint64_t tick_count)
 {
@@ -126,11 +158,11 @@ winsizepos_tick(window_t *win, uint64_t tick_count)
 		uint64_t *last_invoke_tick_count = (uint64_t *)(win->data);
 		uint64_t *number_of_newlines = (uint64_t *)(win->data + sizeof(uint64_t));
 		
-		if (tick_count - *last_invoke_tick_count >= TICK_FREQUENCY)
+		if (tick_count - *last_invoke_tick_count >= TICK_FREQUENCY / 25)
 		{
 			*last_invoke_tick_count = tick_count;
 			(*number_of_newlines)++;
-			if (*number_of_newlines >= win->dimension.y)
+			if (*number_of_newlines > win->dimension.y * 2)
 			{
 				*number_of_newlines = 0;
 			}
@@ -170,6 +202,10 @@ test_wengine(void)
 	win4 = window_create(&style4);
 	win4->callback_tick = winsizepos_tick;
 	win4->data = (uint64_t *)calloc(2, sizeof(uint64_t));
+
+	win5 = window_create(&style5);
+	win5->callback_tick = winsizepos_tick;
+	win5->data = (uint64_t *)calloc(2, sizeof(uint64_t));
 	
 	engine_setup();
 
@@ -177,9 +213,11 @@ test_wengine(void)
 	wm_window_show(win2);
 	wm_window_show(win3);
 	wm_window_show(win4);
+	wm_window_show(win5);
 
 	wm_window_tofront(win3);
 	wm_window_tofront(win2);
+	wm_window_tofront(win5);
 	
 	/*
 	window_write(win1, "Hello, world!", 13, cstyle);
@@ -196,6 +234,7 @@ test_wengine(void)
 	window_destroy(win2);
 	window_destroy(win3);
 	window_destroy(win4);
+	window_destroy(win5);
 	
 	return TEST_OK;
 }
